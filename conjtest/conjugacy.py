@@ -91,6 +91,8 @@ def symmetric_conjugacy_knn(ts1, ts2, k, dist_fun=None):
     The assumption the conjugacy h:X->Y maps h(x_i) = y_i
     :param ts1: time series one - an array of size [n, d]
     :param ts2: time series two - shape the same as ts1
+    :param k: the number of closest neigbors to be taken into account
+    :param dist_fun: metric to be used
     :return:
     """
     assert len(ts1) == len(ts2)
@@ -112,7 +114,6 @@ def symmetric_conjugacy_knn(ts1, ts2, k, dist_fun=None):
         knn1 = set(nn1[i, :k + 1])
         diff1 = -len(knn1)
         j = 0
-        # print(nn1[i,:10], nn2[i,:10])
         while len(knn1) > 0:
             knn1 = knn1.difference([nn2[i, j]])
             diff1 += 1
@@ -131,6 +132,13 @@ def symmetric_conjugacy_knn(ts1, ts2, k, dist_fun=None):
 
 
 def fnn(ts1, ts2, r=None, dist_fun=None):
+    """
+    :param ts1: time series one - an array of size [n, d]
+    :param ts2: time series two - shape the same as ts1
+    :param r: the parameter of FNN method
+    :param dist_fun: metric to be used
+    :return:
+    """
     if dist_fun is None:
         distf = 'euclidean'
     elif dist_fun == 'max':
@@ -169,8 +177,6 @@ def fnn(ts1, ts2, r=None, dist_fun=None):
         fnn2_num = 0
         for i in range(n):
             v1 = H(std1 / rv - dists1[i, nn1[i]])
-            # print(rv, i, dists2[i, nn1[i]], dists1[i, nn1[i]])
-            # print(dists2[i, nn1[i]]/ dists1[i, nn1[i]])
             fnn1_num += H(dists2[i, nn1[i]] / dists1[i, nn1[i]] - rv) * v1
             fnn1_div += v1
 
@@ -223,15 +229,13 @@ def conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
     nnX = np.argsort(distsX, axis=1)
     # nnY = np.argsort(distsY, axis=1)
 
-    print(tsX.shape, tsY.shape)
     accumulated_hausdorff = {}
     for tv in t:
         for kv in k:
             accumulated_hausdorff[(kv, tv)] = []
-    # print(t, k)
+
     # mk in the variable name denotes that someting is for maxk, only 'k' denotes that it is k-specific
     for i in range(len(tsX) - maxt):
-        # print(i)
         # take h images of k nearest neigh. of x_i - h(Ux)
         hmknnX = h(np.array([tsX[x] for x in nnX[i, :maxk + 1]]))
         # consider a special case when hknnX is a singleton in 1-D
@@ -261,28 +265,7 @@ def conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
                 # push t-times the h image k-neigh of x_i forward - g^t(Vx)
                 gknnY = np.array([tsY[y + tv] for y in idx_knnY])
 
-                # print(np.array([tsX[x] for x in idx_knnX]).shape, np.array([tsY[y] for y in idx_knnY]).shape)
-                # dom_hdist = directed_hausdorff(h(np.array([tsX[x] for x in idx_knnX])), np.array([tsY[y] for y in idx_knnY]))
-                # dom_hdist = directed_hausdorff(hmknnX[:kv+1], np.array([tsY[y] for y in idx_knnY]))
-                # im_hdist = directed_hausdorff(hfknnX, gknnY)
-                # old_im_hdist = max(directed_hausdorff(hfknnX, gknnY)[0],
-                #                directed_hausdorff(gknnY, hfknnX)[0])
-                # old_im_hdist = (directed_hausdorff(hfknnX, gknnY)[0],
-                #                    directed_hausdorff(gknnY, hfknnX)[0])
-                #
                 im_hdist = hausdorff_distance(hfknnX, gknnY, distf)
-                # sym_im_hdist = hausdorff_distance(gknnY, hfknnX, dist_fun)
-                # if im_hdist > 0.:
-                #     print("huh")
-
-                # accumulated_hausdorff.append(im_hdist)
-                # hdist2 = directed_hausdorff(gknnY, hfknnX)
-                # print(dom_hdist, im_hdist)
-                # if dom_hdist[0] == 0:
-                #     accumulated_hausdorff[(kv, tv)].append(im_hdist[0]/0.00001)
-                # else:
-                #     accumulated_hausdorff[(kv, tv)].append(im_hdist[0] / dom_hdist[0])
-                # xyz = accumulated_hausdorff[(kv, tv)]
                 accumulated_hausdorff[(kv, tv)].append(im_hdist)
 
     distsY = cdist(tsY, tsY, distf)
@@ -330,17 +313,12 @@ def neigh_conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
     nnX = np.argsort(distsX, axis=1)
     nnY = np.argsort(distsY, axis=1)
 
-    allstats = np.zeros((len(tsX), len(k), len(t)))
-
-    print(tsX.shape, tsY.shape)
     accumulated_hausdorff = {}
     for tv in t:
         for kv in k:
             accumulated_hausdorff[(kv, tv)] = []
-    # print(t, k)
     # mk in the variable name denotes that someting is for maxk, only 'k' denotes that it is k-specific
     for i in range(len(tsX) - maxt - 1):
-        # print(i)
         # take h images of k nearest neigh. of x_i - h(Ux)
         hmknnX = h(np.array([tsX[x] for x in nnX[i, :maxk + 1]]))
         # consider a special case when hknnX is a singleton in 1-D
@@ -348,14 +326,11 @@ def neigh_conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
             hmknnX = hmknnX.reshape((len(hmknnX), 1))
         elif hmknnX.shape[1] == 1 and hmknnX.shape[0] == 1:
             hmknnX = hmknnX.reshape((1, 1))
-        # print(hmknnX.shape, tsY[:-maxt].shape)
         # take h images of k nearest neigh. of x_i - h(Ux) and compute distances to points in Y
         knns_dists = cdist(hmknnX, tsY[:-2*maxt], distf)
 
         for it, tv in enumerate(t):
             # push t-times k-neigh of x_i forward and then compute the image - h(f^t(Ux))
-            # print(nnX[i, :maxk + 1])
-            # print(nnX[i, :maxk + 1] + tv)
             hfmknnX = h(np.array([tsX[x + tv] for x in nnX[i, :maxk + 1]]))
             # find indices of nearest neighbours of points in that image - denote it Vx
             idx_mknnY = np.argmin(knns_dists, axis=1)
@@ -368,13 +343,11 @@ def neigh_conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
                 # find the minimal neighborhood of y containing all kv of hknnY
                 max_hknnY_idx = (nnY[idx_mknnY[0], :, None] == idx_mknnY[:kv + 1]).argmax(axis=0).max() + 1
                 idx_knnY = nnY[idx_mknnY[0], :max_hknnY_idx]
-                # idx_knnY  = idx_mknnY[:kv+1]
                 # push t-times the h image k-neigh of x_i forward - g^t(Vx)
                 ghknnY = np.array([tsY[y + tv] for y in idx_knnY])
 
                 im_hdist = hausdorff_distance(hfknnX, ghknnY, distf)
                 accumulated_hausdorff[(kv, tv)].append(im_hdist)
-                # allstats[i, ik, it] = im_hdist
 
     distsY = cdist(tsY, tsY, distf)
     max_distY = np.max(distsY)
@@ -383,8 +356,4 @@ def neigh_conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
         for ik, kv in enumerate(k):
             diffs[ik, it] = np.sum(accumulated_hausdorff[(kv, tv)]) / (len(accumulated_hausdorff[(kv, tv)]) * max_distY)
 
-#    if True:
-#        return diffs, allstats
-#    else:
-#     print(diffs)
     return diffs

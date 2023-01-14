@@ -3,7 +3,15 @@ from itertools import combinations
 import numpy as np
 import pandas as pd
 
+
 def embedding(points, dimension, delay):
+    """
+
+    :param points:
+    :param dimension:
+    :param delay:
+    :return:
+    """
     emb_indices = np.arange(dimension) * (delay + 1) + np.arange(
         np.max(points.shape[0] - (dimension - 1) * (delay + 1), 0)).reshape(-1, 1)
     ep = points[emb_indices]
@@ -12,9 +20,15 @@ def embedding(points, dimension, delay):
     else:
         return ep[:, :, 0]
 
-def embedding_homeomorphisms(data, base_ts, dl=5, emb_ts='emb'):
-    # the structure of embedding time series:
-    # (emb_ts, [index of projected coordinate], [embedding dimension], [other parameters of the series], [other2], ...)
+
+def embedding_homeomorphisms(data, base_ts, dl=5):
+    """
+
+    :param data:
+    :param base_ts:
+    :param dl:
+    :return:
+    """
     # the structure of the base time series:
     # (base_ts, [parameter of a time series], [parameter2], ...)
 
@@ -26,37 +40,37 @@ def embedding_homeomorphisms(data, base_ts, dl=5, emb_ts='emb'):
 
     def homeo(k1, k2, ts1, ts2):
         if k1[0] == base_ts and k2[0] == 'emb':
-            refference_sequence = embedding(ts1[:, k2[1]], k2[2], dl)
+            reference_sequence = embedding(ts1[:, k2[1]], k2[2], dl)
             # print(refference_sequence.shape)
 
             def h(x):
                 points = []
                 for p in x:
                     idx = np.argwhere(ts1 == p)[0, 0]
-                    points.append(refference_sequence[idx])
+                    points.append(reference_sequence[idx])
                 return np.array(points)
 
             return h
         if k1[0] == 'emb' and k2[0] == base_ts:
-            refference_sequence = base_time_series[k1[3:]]
+            reference_sequence = base_time_series[k1[3:]]
 
             def h(x):
                 points = []
                 for p in x:
                     idx = np.argwhere(ts1 == p)[0, 0]
-                    points.append(refference_sequence[idx])
+                    points.append(reference_sequence[idx])
                 return np.array(points)
 
             return h
         if k1[0] == 'emb' and k2[0] == 'emb':
-            refference_sequence = embedding(base_time_series[k1[3:]][:, k2[1]], k2[2], dl)
+            reference_sequence = embedding(base_time_series[k1[3:]][:, k2[1]], k2[2], dl)
 
             def h(x):
                 points = []
                 # print(x)
                 for p in x:
                     idx = np.argwhere(ts1 == p)[0, 0]
-                    points.append(refference_sequence[idx])
+                    points.append(reference_sequence[idx])
                 return np.array(points)
 
             return h
@@ -67,6 +81,20 @@ def embedding_homeomorphisms(data, base_ts, dl=5, emb_ts='emb'):
 
 
 def vanilla_experiment(data, base_name, kv, tv, rv, do_knn, do_conj, homeo=None, pairs=None, dist_fun=None, out_dir=''):
+    """
+
+    :param data:
+    :param base_name:
+    :param kv:
+    :param tv:
+    :param rv:
+    :param do_knn:
+    :param do_conj:
+    :param homeo:
+    :param pairs:
+    :param dist_fun:
+    :param out_dir:
+    """
     keys = [k for k in data.keys()]
     labels = [str(k) for k in keys]
     print(data.keys())
@@ -115,22 +143,28 @@ def vanilla_experiment(data, base_name, kv, tv, rv, do_knn, do_conj, homeo=None,
     if do_knn:
         for ik, k in enumerate(kv):
             knn_df = pd.DataFrame(data=knn_diffs[:, :, ik], index=labels, columns=labels)
-            knn_df.to_csv(out_dir + base_name + '_knns_k' + str(k) + '.csv')
+            knn_df.to_csv(out_dir + '/' + base_name + '_knns_k' + str(k) + '.csv')
+            print('----------------------------------------------------------------------------------')
+            print("KNN - k: " + str(k))
             print(knn_df.to_markdown())
 
         for ir, r in enumerate(rv):
             fnn_df = pd.DataFrame(data=fnn_diffs[:, :, ir], index=labels, columns=labels)
-            fnn_df.to_csv(out_dir + base_name + '_fnns_r' + str(r) + '.csv')
-            print(knn_df.to_markdown())
+            fnn_df.to_csv(out_dir + '/' + base_name + '_fnns_r' + str(r) + '.csv')
+            print('----------------------------------------------------------------------------------')
+            print("FNN - r: " + str(r))
+            print(fnn_df.to_markdown())
 
     if do_conj:
         for ik, k in enumerate(kv):
             for it, t in enumerate(tv):
                 conj_df = pd.DataFrame(data=conj_diffs[:, :, ik, it], index=labels, columns=labels)
-                conj_df.to_csv(out_dir + base_name + '_conj_k' + str(k) + '_t' + str(t) + '.csv')
-                print('conj k:' + str(k) + ' t:' + str(t))
+                conj_df.to_csv(out_dir + '/' + base_name + '_conjtest_k' + str(k) + '_t' + str(t) + '.csv')
+                print('----------------------------------------------------------------------------------')
+                print('ConjTest - k: ' + str(k) + ', t: ' + str(t))
                 print(conj_df.to_markdown())
                 neigh_conj_df = pd.DataFrame(data=neigh_conj_diffs[:, :, ik, it], index=labels, columns=labels)
-                neigh_conj_df.to_csv(out_dir + base_name + '_neigh_conj_k' + str(k) + '_t' + str(t) + '.csv')
-                print('neigh conj k:' + str(k) + ' t:' + str(t))
+                neigh_conj_df.to_csv(out_dir + '/' + base_name + '_conjtestplus_k' + str(k) + '_t' + str(t) + '.csv')
+                print('----------------------------------------------------------------------------------')
+                print('ConjTestPlus - k: ' + str(k) + ', t: ' + str(t))
                 print(neigh_conj_df.to_markdown())
