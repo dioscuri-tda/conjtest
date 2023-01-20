@@ -38,11 +38,6 @@ def angle_power_interval(x, p):
     return np.power(x, p)
 
 
-# identity map
-def id(x):
-    return x
-
-
 def generate_circle_rotation_data_test(n=1000, starting_points=None, rotations=None, nonlin_params=None):
     """
     @param n:
@@ -69,7 +64,7 @@ def generate_circle_rotation_data_test(n=1000, starting_points=None, rotations=N
 
 def vanilla_experiment_rotation():
     """
-    Experiment 1A described in Section 4.1.1. of [link]
+    Experiment 1A described in Section 4.1.1. of https://arxiv.org/abs/2301.06753
     """
     n = 2000
     starting_points = np.array([0., 0.25])
@@ -85,7 +80,7 @@ def vanilla_experiment_rotation():
 
     def homeo(k1, k2, ts1, ts2):
         if len(k1) == len(k2):
-            return id
+            return lambda x: x
         elif len(k1) == 2 and len(k2) > 2:
             return lambda x: angle_power_interval(x, 1. / k2[2])
         elif len(k1) > 2 and len(k2) == 2:
@@ -94,6 +89,7 @@ def vanilla_experiment_rotation():
     kv = [3, 5]
     tv = [5, 10]
     rv = [2, 3]
+
     ### for computing all vs. all set
     # pairs = None
     ct.vanilla_experiment(data, basename + '_rotation_n' + str(n), kv, tv, rv, do_knn=True, do_conj=True, homeo=homeo,
@@ -102,13 +98,11 @@ def vanilla_experiment_rotation():
 
 def experiment_rotation_int_rv_grid():
     """
-    Experiment 1B described in Section 4.1.2. of [link]
+    Experiment 1B described in Section 4.1.2. of https://arxiv.org/abs/2301.06753
     """
-    # rotations = np.arange(0.05, 0.751, 0.025)
     npoints = 2000
     base_angle = np.sqrt(2) / 10
     nsteps = 50
-    nsteps = 2
     step = base_angle / (2 * nsteps)
     rotations = [base_angle + (step * (i - nsteps)) for i in range(int(nsteps * 3.5))]
     total_steps = nsteps * 3.5
@@ -118,7 +112,6 @@ def experiment_rotation_int_rv_grid():
     rv = [1, 2, 3, 8]
     tv = [1, 3, 5, 10]
     keys = [k for k in data.keys()]
-    labels = [str(k) for k in keys]
 
     conj_diffs = np.zeros((len(keys), len(kv), len(tv)))
     knns_diffs = np.zeros((len(keys), len(kv), 2))
@@ -163,7 +156,9 @@ def experiment_rotation_int_rv_grid():
     knns2_df.to_csv(output_directory + '/' + base_name + '_knn2' + '_n' + str(npoints) + '.csv')
     print('----------------------------------------------------------------------------------')
     print("KNN; column: value of k; row: angle")
+    print("time series 1 vs. time series 2")
     print(knns1_df.to_markdown())
+    print("time series 2 vs. time series 1")
     print(knns2_df.to_markdown())
 
     fnns1_df = pd.DataFrame(data=np.transpose(fnns_diffs[:, :, 0]), index=[str(r) for r in rv],
@@ -174,13 +169,15 @@ def experiment_rotation_int_rv_grid():
     fnns2_df.to_csv(output_directory + '/' + base_name + '_fnn2' + '_n' + str(npoints) + '.csv')
     print('----------------------------------------------------------------------------------')
     print("FNN; column: value of r; row: angle")
+    print("time series 1 vs. time series 2")
     print(fnns1_df.to_markdown())
+    print("time series 2 vs. time series 1")
     print(fnns2_df.to_markdown())
 
 
 def experiment_rotation_noise_grid():
     """
-    Experiment 1C described in Section 4.1.3. of [link]
+    Experiment 1C described in Section 4.1.3. of https://arxiv.org/abs/2301.06753
     """
     npoints = 2000
     base_angle = np.sqrt(2) / 10
@@ -268,9 +265,12 @@ def experiment_rotation_noise_grid():
 
 if __name__ == '__main__':
     os.makedirs(output_directory, exist_ok=True)
-    # Experiment 1A - 4.1.1
+
+    ### experiment 1A - 4.1.1
     vanilla_experiment_rotation()
-    # Experiment 1B - 4.1.2
+
+    ### experiment 1B - 4.1.2
     # experiment_rotation_int_rv_grid()
-    # Experiment 1C - 4.1.3
+
+    ### experiment 1C - 4.1.3
     # experiment_rotation_noise_grid()
