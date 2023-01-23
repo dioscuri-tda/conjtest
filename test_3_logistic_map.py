@@ -103,11 +103,11 @@ def experiment_log_rv_grid():
         else:
             ts2 = data[k2]
         new_n = min(len(ts1), len(ts2))
-        conj_diffs[j, :, :] = ct.conjugacy_test(ts1[:new_n], ts2[:new_n], lambda x: x, k=kv, t=tv)
-        knn1, knn2 = ct.conjugacy_test_knn(ts1[:new_n], ts2[:new_n], k=kv)
+        conj_diffs[j, :, :] = ct.conjtest(ts1[:new_n], ts2[:new_n], lambda x: x, k=kv, t=tv)
+        knn1, knn2 = ct.knn_conjugacy_test(ts1[:new_n], ts2[:new_n], k=kv)
         knns_diffs[j, :, 0] = knn1
         knns_diffs[j, :, 1] = knn2
-        fnn1, fnn2 = ct.fnn(ts1[:new_n], ts2[:new_n], r=rv)
+        fnn1, fnn2 = ct.fnn_conjugacy_test(ts1[:new_n], ts2[:new_n], r=rv)
         fnns_diffs[j, :, 0] = fnn1
         fnns_diffs[j, :, 1] = fnn2
 

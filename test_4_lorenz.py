@@ -177,24 +177,24 @@ def experiment_lorenz_embedding():
             ts2 = data[k2]
         new_n = min(len(ts1), len(ts2))
         if do_fnn:
-            fnn1, fnn2 = ct.fnn(ts1[:new_n], ts2[:new_n], r=rv, dist_fun='max')
+            fnn1, fnn2 = ct.fnn_conjugacy_test(ts1[:new_n], ts2[:new_n], r=rv, dist_fun='max')
             fnn_diffs[i-1, 0, :] = fnn1
             fnn_diffs[i-1, 1, :] = fnn2
         if do_knn:
-            knn1, knn2 = ct.conjugacy_test_knn(ts1[:new_n], ts2[:new_n], k=kv, dist_fun='max')
+            knn1, knn2 = ct.knn_conjugacy_test(ts1[:new_n], ts2[:new_n], k=kv, dist_fun='max')
             knn_diffs[i-1, 0, :] = knn1
             knn_diffs[i-1, 1, :] = knn2
         if do_conj:
             tsA = ts1[:new_n]
             tsB = ts2[:new_n]
-            neigh_conj_diffs_t[i-1, 0, :] = ct.neigh_conjugacy_test(tsA, tsB, homeo(k1, k2, ts1, ts2), k=[5], t=tv,
-                                                                    dist_fun='max')
-            neigh_conj_diffs_t[i-1, 1, :] = ct.neigh_conjugacy_test(tsB, tsA, homeo(k2, k1, ts2, ts1), k=[5], t=tv,
-                                                                    dist_fun='max')
-            neigh_conj_diffs_k[i-1, 0, :] = ct.neigh_conjugacy_test(tsA, tsB, homeo(k1, k2, ts1, ts2), k=kv, t=[10],
-                                                                    dist_fun='max')[:, 0]
-            neigh_conj_diffs_k[i-1, 1, :] = ct.neigh_conjugacy_test(tsB, tsA, homeo(k2, k1, ts2, ts1), k=kv, t=[10],
-                                                                    dist_fun='max')[:, 0]
+            neigh_conj_diffs_t[i-1, 0, :] = ct.conjtest_plus(tsA, tsB, homeo(k1, k2, ts1, ts2), k=[5], t=tv,
+                                                             dist_fun='max')
+            neigh_conj_diffs_t[i-1, 1, :] = ct.conjtest_plus(tsB, tsA, homeo(k2, k1, ts2, ts1), k=[5], t=tv,
+                                                             dist_fun='max')
+            neigh_conj_diffs_k[i-1, 0, :] = ct.conjtest_plus(tsA, tsB, homeo(k1, k2, ts1, ts2), k=kv, t=[10],
+                                                             dist_fun='max')[:, 0]
+            neigh_conj_diffs_k[i-1, 1, :] = ct.conjtest_plus(tsB, tsA, homeo(k2, k1, ts2, ts1), k=kv, t=[10],
+                                                             dist_fun='max')[:, 0]
 
     if do_fnn:
         fnn_df = pd.DataFrame(data=fnn_diffs[:, 0, :], index=[str(i) for i in dimsv[:-1]], columns=[str(r) for r in rv])
@@ -291,14 +291,14 @@ def experiment_lorenz_diff_sp_grid():
             new_n = min(len(ts1), len(ts2))
 
             print(base_name)
-            conj_diffs[j - 1, :, :] = ct.conjugacy_test(ts1[:new_n], ts2[:new_n], homeo(k1, k2, ts1, ts2), k=kv, t=tv,
-                                                        dist_fun='max')
+            conj_diffs[j - 1, :, :] = ct.conjtest(ts1[:new_n], ts2[:new_n], homeo(k1, k2, ts1, ts2), k=kv, t=tv,
+                                                  dist_fun='max')
             conj_df = pd.DataFrame(data=conj_diffs[j - 1, :, :], index=[str(k) for k in kv], columns=[str(t) for t in tv])
             conj_df.to_csv(output_directory + '/' + base_name + '_conj.csv')
             print(conj_df.to_markdown())
 
-            neigh_conj_diffs[j - 1, :, :] = ct.neigh_conjugacy_test(ts1[:new_n], ts2[:new_n], homeo(k1, k2, ts1, ts2), k=kv,
-                                                                    t=tv, dist_fun='max')
+            neigh_conj_diffs[j - 1, :, :] = ct.conjtest_plus(ts1[:new_n], ts2[:new_n], homeo(k1, k2, ts1, ts2), k=kv,
+                                                             t=tv, dist_fun='max')
             neigh_conj_df = pd.DataFrame(data=neigh_conj_diffs[j - 1, :, :], index=[str(k) for k in kv],
                                          columns=[str(t) for t in tv])
             neigh_conj_df.to_csv(output_directory + '/' + base_name + '_neigh_conj.csv')
@@ -309,10 +309,10 @@ if __name__ == '__main__':
     os.makedirs(output_directory, exist_ok=True)
 
     ### experiment 3A - 4.3.1
-    vanilla_experiment_lorenz(0)
+    # vanilla_experiment_lorenz(0)
 
     ### experiment 3B - 4.3.2
-    experiment_lorenz_embedding()
+    # experiment_lorenz_embedding()
 
     ### experiment 3C - 4.3.3
     experiment_lorenz_diff_sp_grid()

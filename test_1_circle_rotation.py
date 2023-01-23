@@ -131,11 +131,11 @@ def experiment_rotation_int_rv_grid():
         else:
             ts2 = data[k2]
         new_n = min(len(ts1), len(ts2))
-        conj_diffs[j, :, :] = ct.conjugacy_test(ts1[:new_n], ts2[:new_n], id, k=kv, t=tv, dist_fun=sphere_max_dist)
-        knn1, knn2 = ct.conjugacy_test_knn(ts1[:new_n], ts2[:new_n], k=kv, dist_fun=sphere_max_dist)
+        conj_diffs[j, :, :] = ct.conjtest(ts1[:new_n], ts2[:new_n], id, k=kv, t=tv, dist_fun=sphere_max_dist)
+        knn1, knn2 = ct.knn_conjugacy_test(ts1[:new_n], ts2[:new_n], k=kv, dist_fun=sphere_max_dist)
         knns_diffs[j, :, 0] = knn1
         knns_diffs[j, :, 1] = knn2
-        fnn1, fnn2 = ct.fnn(ts1[:new_n], ts2[:new_n], r=rv, dist_fun=sphere_max_dist)
+        fnn1, fnn2 = ct.fnn_conjugacy_test(ts1[:new_n], ts2[:new_n], r=rv, dist_fun=sphere_max_dist)
         fnns_diffs[j, :, 0] = fnn1
         fnns_diffs[j, :, 1] = fnn2
 
@@ -222,12 +222,12 @@ def experiment_rotation_noise_grid():
         else:
             ts2 = data[k2]
         new_n = min(len(ts1), len(ts2))
-        conj_diffs[j - 1, :, :] = ct.conjugacy_test(ts1[:new_n], ts2[:new_n], homeo, k=kv, t=tv,
-                                                    dist_fun=sphere_max_dist)
-        knn1, knn2 = ct.conjugacy_test_knn(ts1[:new_n], ts2[:new_n], k=kv, dist_fun=sphere_max_dist)
+        conj_diffs[j - 1, :, :] = ct.conjtest(ts1[:new_n], ts2[:new_n], homeo, k=kv, t=tv,
+                                              dist_fun=sphere_max_dist)
+        knn1, knn2 = ct.knn_conjugacy_test(ts1[:new_n], ts2[:new_n], k=kv, dist_fun=sphere_max_dist)
         knns_diffs[j - 1, :, 0] = knn1
         knns_diffs[j - 1, :, 1] = knn2
-        fnn1, fnn2 = ct.fnn(ts1[:new_n], ts2[:new_n], r=rv, dist_fun=sphere_max_dist)
+        fnn1, fnn2 = ct.fnn_conjugacy_test(ts1[:new_n], ts2[:new_n], r=rv, dist_fun=sphere_max_dist)
         fnns_diffs[j - 1, :, 0] = fnn1
         fnns_diffs[j - 1, :, 1] = fnn2
 

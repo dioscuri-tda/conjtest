@@ -10,7 +10,13 @@ import os
 output_directory = 'outputs/rotation_torus'
 basename = 'rotation_torus'
 
+
 def f_label(x):
+    """
+
+    :param x:
+    :return:
+    """
     return str(np.round(x, 3))
 
 

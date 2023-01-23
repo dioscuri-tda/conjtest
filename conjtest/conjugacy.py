@@ -1,6 +1,6 @@
 import numba
 import numpy as np
-from scipy.spatial.distance import cdist, directed_hausdorff
+from scipy.spatial.distance import cdist
 from hausdorff import hausdorff_distance  ### https://github.com/mavillan/py-hausdorff
 
 
@@ -9,137 +9,18 @@ def max_dist(x, y):
     return max(np.abs(x - y))
 
 
-def conjugacy_test_knn(ts1, ts2, k=None, point_vals=False, dist_fun=None):
+def fnn_conjugacy_test(ts1, ts2, r=None, dist_fun=None):
     """
-    @param ts1:
-    @param ts2:
-    @param k: a list of parameters k for which values should be computed
-    @param point_vals:
-    @param dist_fun:
-    @return:
-    """
-    if k is None:
-        k = [1]
-    assert len(ts1) == len(ts2)
-    n = len(ts1)
-    if dist_fun is None:
-        distf = 'euclidean'
-    elif dist_fun == 'max':
-        distf = 'chebyshev'
-    else:
-        distf = dist_fun
-
-    # distances between points within time series
-    dists1 = cdist(ts1, ts1, distf)
-    dists2 = cdist(ts2, ts2, distf)
-    # sorted indexes for every point according to the distance
-    nn1 = np.argsort(dists1, axis=1)
-    nn2 = np.argsort(dists2, axis=1)
-
-    knns_first_vs_second = []
-    local_diffs_1 = []
-    knns_second_vs_first = []
-    local_diffs_2 = []
-    for kv in k:
-        diff12 = 0
-        pvals12 = []
-        pvals21 = []
-        # compare ts1 to ts2
-        for i in range(n):
-            # take indices of k-nearest neighbours of x_i (kv+1 because it has distance 0 to itself)
-            knn1 = set(nn1[i, :kv + 1])
-            diff = -len(knn1)
-            j = 0
-            # from the list of k-nn remove nearest neighbours of y_i until the list knn1 is empty
-            # if the neighbours are the same diff would be 0 at the end
-            while len(knn1) > 0:
-                knn1 = knn1.difference([nn2[i, j]])
-                diff += 1
-                j += 1
-            pvals12.append(diff)
-            diff12 += diff
-        # divide by n^2 - we want to measure how relatively many artificial neighbours are created,
-        # the second n comes from computing the average value over all points
-        diff12 = diff12 / (n * n)
-        knns_first_vs_second.append(diff12)
-        local_diffs_1.append(pvals12)
-
-    for kv in k:
-        diff21 = 0
-        # compare ts2 to ts1
-        for i in range(n):
-            knn2 = set(nn2[i, :kv + 1])
-            diff = -len(knn2)
-            j = 0
-            while len(knn2) > 0:
-                knn2 = knn2.difference([nn1[i, j]])
-                diff += 1
-                j += 1
-            diff21 += diff
-            pvals21.append(diff)
-        diff21 = diff21 / (n * n)
-        knns_second_vs_first.append(diff21)
-        local_diffs_2.append(pvals21)
-
-    if point_vals:
-        return knns_first_vs_second, knns_second_vs_first, local_diffs_1, local_diffs_2
-    else:
-        return knns_first_vs_second, knns_second_vs_first
-
-
-def symmetric_conjugacy_knn(ts1, ts2, k, dist_fun=None):
-    """
-    The assumption the conjugacy h:X->Y maps h(x_i) = y_i
-    :param ts1: time series one - an array of size [n, d]
-    :param ts2: time series two - shape the same as ts1
-    :param k: the number of closest neigbors to be taken into account
-    :param dist_fun: metric to be used
-    :return:
-    """
-    assert len(ts1) == len(ts2)
-    n = len(ts1)
-    if dist_fun is None:
-        distf = 'euclidean'
-    elif dist_fun == 'max':
-        distf = 'chebyshev'
-    else:
-        distf = dist_fun
-
-    dists1 = cdist(ts1, ts1, distf)
-    dists2 = cdist(ts2, ts2, distf)
-    nn1 = np.argsort(dists1, axis=1)
-    nn2 = np.argsort(dists2, axis=1)
-
-    total_diff = 0
-    for i in range(n):
-        knn1 = set(nn1[i, :k + 1])
-        diff1 = -len(knn1)
-        j = 0
-        while len(knn1) > 0:
-            knn1 = knn1.difference([nn2[i, j]])
-            diff1 += 1
-            j += 1
-
-        knn2 = set(nn2[i, :k + 1])
-        diff2 = -len(knn2)
-        j = 0
-        while len(knn2) > 0:
-            knn2 = knn2.difference([nn1[i, j]])
-            diff2 += 1
-            j += 1
-        total_diff = max(diff1, diff2)
-
-    return total_diff / n
-
-
-def fnn(ts1, ts2, r=None, dist_fun=None):
-    """
-    :param ts1: time series one - an array of size [n, d]
-    :param ts2: time series two - shape the same as ts1
+    A dynamical distance between two discrete trajectories based on the FNN method for estimating optimal
+    embedding dimension. The test is not symmetric. Thus, the method returns two values.
+    See https://arxiv.org/abs/2301.06753 for details.
+    :param ts1: d1-dimensional discrete trajectory of size n- an array of size [n, d1]
+    :param ts2: d2-dimensional discrete trajectory of size n- an array of size [n, d2]
     :param r: the parameter of FNN method
-    :param dist_fun: metric to be used
-    :return:
+    :param dist_fun: distance function - 'euclidean', 'max' or a callable object
+    :return: values indicating similarity between two trajectories (ts1 vs. ts2 and ts2 vs. ts1)
     """
+    # TODO: different metrics for ts1 and ts2
     if dist_fun is None:
         distf = 'euclidean'
     elif dist_fun == 'max':
@@ -193,21 +74,95 @@ def fnn(ts1, ts2, r=None, dist_fun=None):
             fnns2.append(np.infty)
         else:
             fnns2.append(fnn2_num / fnn2_div)
-
     return fnns1, fnns2
 
 
-def conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
+def knn_conjugacy_test(ts1, ts2, k=None, dist_fun=None):
     """
-    Conjugacy that does not require the direct correspondence of time series
-    :param tsX: a time series in X
-    :param tsY: a time series in Y
-    :param h: a map from X to Y
-    :param k: k-nn are taken as an approximation of a neighbourhood, default=1
-    :param t: conjugacy is tested t steps forward, default=1
-    :return:
+    A dynamical distance between two discrete trajectories based on the K-nearest neighbors.
+    The test is not symmetric. Thus, the method returns two values.
+    See https://arxiv.org/abs/2301.06753 for details.
+    :param ts1: d1-dimensional discrete trajectory of size n- an array of size [n, d1]
+    :param ts2: d2-dimensional discrete trajectory of size n- an array of size [n, d2]
+    :param k: a list of parameters k for which values should be computed
+    :param dist_fun: distance function - 'euclidean', 'max' or a callable object
+    :return: values indicating similarity between two trajectories (ts1 vs. ts2 and ts2 vs. ts1)
     """
+    if k is None:
+        k = [1]
+    assert len(ts1) == len(ts2)
+    n = len(ts1)
+    if dist_fun is None:
+        distf = 'euclidean'
+    elif dist_fun == 'max':
+        distf = 'chebyshev'
+    else:
+        distf = dist_fun
 
+    # distances between points within time series
+    dists1 = cdist(ts1, ts1, distf)
+    dists2 = cdist(ts2, ts2, distf)
+    # sorted indexes for every point according to the distance
+    nn1 = np.argsort(dists1, axis=1)
+    nn2 = np.argsort(dists2, axis=1)
+
+    knns_first_vs_second = []
+    knns_second_vs_first = []
+    for kv in k:
+        diff12 = 0
+        pvals12 = []
+        pvals21 = []
+        # compare ts1 to ts2
+        for i in range(n):
+            # take indices of k-nearest neighbours of x_i (kv+1 because it has distance 0 to itself)
+            knn1 = set(nn1[i, :kv + 1])
+            diff = -len(knn1)
+            j = 0
+            # from the list of k-nn remove nearest neighbours of y_i until the list knn1 is empty
+            # if the neighbours are the same diff would be 0 at the end
+            while len(knn1) > 0:
+                knn1 = knn1.difference([nn2[i, j]])
+                diff += 1
+                j += 1
+            pvals12.append(diff)
+            diff12 += diff
+        # divide by n^2 - we want to measure how relatively many artificial neighbours are created,
+        # the second n comes from computing the average value over all points
+        diff12 = diff12 / (n * n)
+        knns_first_vs_second.append(diff12)
+
+    for kv in k:
+        diff21 = 0
+        # compare ts2 to ts1
+        for i in range(n):
+            knn2 = set(nn2[i, :kv + 1])
+            diff = -len(knn2)
+            j = 0
+            while len(knn2) > 0:
+                knn2 = knn2.difference([nn1[i, j]])
+                diff += 1
+                j += 1
+            diff21 += diff
+            pvals21.append(diff)
+        diff21 = diff21 / (n * n)
+        knns_second_vs_first.append(diff21)
+
+    return knns_first_vs_second, knns_second_vs_first
+
+
+def conjtest(tsX, tsY, h, k=None, t=None, dist_fun=None):
+    """
+    Conjugacy test measuring dynamical distance between two time series directly based on the conjugacy diagram.
+    The test is not symmetric. The method checks only tsX vs. tsY.
+    See https://arxiv.org/abs/2301.06753 for details.
+    :param tsX: d1-dimensional discrete trajectory of in space X of size n1 an array of size [n1, d1]
+    :param tsY: d2-dimensional discrete trajectory of in space Y of size n2 an array of size [n2, d2]
+    :param h: a callable object transforming a point of tsX into a point in space Y
+    :param k: method's parameter, k-nearest neighbors are used as an approximation of a neighbourhood, default=1
+    :param t: method's parameter, how many time-steps forward the method should consider, default=1
+    :param dist_fun: distance function - 'euclidean', 'max' or a callable object
+    :return: a value indicating similarity between two trajectories (ts1 vs. ts2)
+    """
     if k is None:
         k = [1]
     if t is None:
@@ -244,7 +199,6 @@ def conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
             hmknnX = hmknnX.reshape((len(hmknnX), 1))
         elif hmknnX.shape[1] == 1 and hmknnX.shape[0] == 1:
             hmknnX = hmknnX.reshape((1, 1))
-        # print(hmknnX.shape, tsY[:-maxt].shape)
         # take h images of k nearest neigh. of x_i - h(Ux) and compute distances to points in Y
         knns_dists = cdist(hmknnX, tsY[:-maxt], distf)
 
@@ -276,19 +230,22 @@ def conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
         for ik, kv in enumerate(k):
             diffs[ik, it] = np.sum(accumulated_hausdorff[(kv, tv)]) / (len(accumulated_hausdorff[(kv, tv)]) * max_distY)
 
-    # print(diffs)
     return diffs
 
 
-def neigh_conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
+def conjtest_plus(tsX, tsY, h, k=None, t=None, dist_fun=None):
     """
-    Conjugacy that does not require the direct correspondence of time series
-    :param tsX: a time series in X
-    :param tsY: a time series in Y
-    :param h: a map from X to Y
-    :param k: k-nn are taken as an approximation of a neighbourhood, default=1
-    :param t: conjugacy is tested t steps forward, default=1
-    :return:
+    Conjugacy test measuring dynamical distance between two time series directly based on the conjugacy diagram.
+    It considers point's extended neighborhoods in comparison to conjtest.
+    The test is not symmetric. The method checks only tsX vs. tsY.
+    See https://arxiv.org/abs/2301.06753 for details.
+    :param tsX: d1-dimensional discrete trajectory of in space X of size n1 an array of size [n1, d1]
+    :param tsY: d2-dimensional discrete trajectory of in space Y of size n2 an array of size [n2, d2]
+    :param h: a callable object transforming a point of tsX into a point in space Y
+    :param k: method's parameter, k-nearest neighbors are used as an approximation of a neighbourhood, default=1
+    :param t: method's parameter, how many time-steps forward the method should consider, default=1
+    :param dist_fun: distance function - 'euclidean', 'max' or a callable object
+    :return: a value indicating similarity between two trajectories (ts1 vs. ts2)
     """
 
     if k is None:
@@ -308,8 +265,8 @@ def neigh_conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
     maxk = np.max(k)
     maxt = np.max(t)
 
-    distsX = cdist(tsX[:-maxt], tsX[:-2* maxt], distf)
-    distsY = cdist(tsY[:-maxt], tsY[:-2* maxt], distf)
+    distsX = cdist(tsX[:-maxt], tsX[:-2 * maxt], distf)
+    distsY = cdist(tsY[:-maxt], tsY[:-2 * maxt], distf)
 
     nnX = np.argsort(distsX, axis=1)
     nnY = np.argsort(distsY, axis=1)
@@ -328,7 +285,7 @@ def neigh_conjugacy_test(tsX, tsY, h, k=None, t=None, dist_fun=None):
         elif hmknnX.shape[1] == 1 and hmknnX.shape[0] == 1:
             hmknnX = hmknnX.reshape((1, 1))
         # take h images of k nearest neigh. of x_i - h(Ux) and compute distances to points in Y
-        knns_dists = cdist(hmknnX, tsY[:-2*maxt], distf)
+        knns_dists = cdist(hmknnX, tsY[:-2 * maxt], distf)
 
         for it, tv in enumerate(t):
             # push t-times k-neigh of x_i forward and then compute the image - h(f^t(Ux))

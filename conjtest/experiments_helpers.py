@@ -1,21 +1,21 @@
-from .conjugacy import conjugacy_test, conjugacy_test_knn, neigh_conjugacy_test, fnn
+from .conjugacy import conjtest, knn_conjugacy_test, conjtest_plus, fnn_conjugacy_test
 from itertools import combinations
 import numpy as np
 import pandas as pd
 
 
-def embedding(points, dimension, delay):
+def embedding(ts, dimension, delay):
     """
-
-    :param points:
-    :param dimension:
-    :param delay:
-    :return:
+    Embedding of a 1D time series into d-dimensional space.
+    :param ts: a 1D array
+    :param dimension: dimension of the embedding
+    :param delay: delay parameter
+    :return: a d-embedded time series
     """
     emb_indices = np.arange(dimension) * (delay + 1) + np.arange(
-        np.max(points.shape[0] - (dimension - 1) * (delay + 1), 0)).reshape(-1, 1)
-    ep = points[emb_indices]
-    if len(points.shape) == 1:
+        np.max(ts.shape[0] - (dimension - 1) * (delay + 1), 0)).reshape(-1, 1)
+    ep = ts[emb_indices]
+    if len(ts.shape) == 1:
         return ep
     else:
         return ep[:, :, 0]
@@ -23,16 +23,16 @@ def embedding(points, dimension, delay):
 
 def embedding_homeomorphisms(data, base_ts, dl=5):
     """
-
-    :param data:
-    :param base_ts:
-    :param dl:
-    :return:
+    Generic way for construction of homeomorphisms between embedded trajectories.
+    :param data: a dictionary of time series used for homeomorphism construction
+        the structure of a key in the data parameter: (label, [parameter1], [parameter2], ...)
+        the value is the corresponding discrete trajectory
+    :param base_ts: a label for the base discrete trajectory
+    :param dl: embedding delay parameter
+    :return: an object generating homeomorphisms basednk
     """
-    # the structure of the base time series:
-    # (base_ts, [parameter of a time series], [parameter2], ...)
 
-    # get original time series serving later as a refference sequences
+    # get original time series serving later as a reference sequences
     base_time_series = {}
     for l in data:
         if l[0] == base_ts:
@@ -41,7 +41,6 @@ def embedding_homeomorphisms(data, base_ts, dl=5):
     def homeo(k1, k2, ts1, ts2):
         if k1[0] == base_ts and k2[0] == 'emb':
             reference_sequence = embedding(ts1[:, k2[1]], k2[2], dl)
-            # print(refference_sequence.shape)
 
             def h(x):
                 points = []
@@ -80,20 +79,21 @@ def embedding_homeomorphisms(data, base_ts, dl=5):
     return homeo
 
 
-def vanilla_experiment(data, base_name, kv, tv, rv, do_knn, do_conj, homeo=None, pairs=None, dist_fun=None, out_dir=''):
+def vanilla_experiment(data, base_name, kv, tv, rv, do_knn=True, do_conj=True, homeo=None, pairs=None, dist_fun=None, out_dir=''):
     """
-
-    :param data:
-    :param base_name:
-    :param kv:
-    :param tv:
-    :param rv:
-    :param do_knn:
-    :param do_conj:
-    :param homeo:
-    :param pairs:
-    :param dist_fun:
-    :param out_dir:
+    Default pipeline for the experiment comparing conjugacy measures between discrete trajectories.
+    :param data: a dictionary of discrete trajectories
+    :param base_name: base name for the output files
+    :param kv: a list of k parameters to be used (k-nearest neighbor parameter for knn_conjugacy test and conjtests)
+    :param tv: a list of t parameters to be used (number of forward steps for conjtest and conjtest_plus)
+    :param rv: a list of r parameters to be used (r parameter for fnn_conjugacy test)
+    :param do_knn: run experiment for fnn_conjugacy and knn_conjugacy; default: True
+    :param do_conj: run experiment for conjtest and conjtest_plus; default: True
+    :param homeo: callable method providing a homeomorphism for conjtest and conjtest_plus
+    :param pairs: list of pairs of indices indicating which trajectories from data should be compared;
+        if None, all combinations are computed; default: None
+    :param dist_fun: distance function - 'euclidean', 'max' or a callable object; must be provided
+    :param out_dir: directory where the results should be stored
     """
     keys = [k for k in data.keys()]
     labels = [str(k) for k in keys]
@@ -121,11 +121,11 @@ def vanilla_experiment(data, base_name, kv, tv, rv, do_knn, do_conj, homeo=None,
             ts2 = data[k2]
         new_n = min(len(ts1), len(ts2))
         if do_knn:
-            knn1, knn2 = conjugacy_test_knn(ts1[:new_n], ts2[:new_n], k=kv, dist_fun=dist_fun)
+            knn1, knn2 = knn_conjugacy_test(ts1[:new_n], ts2[:new_n], k=kv, dist_fun=dist_fun)
             knn_diffs[i, j, :] = knn1
             knn_diffs[j, i, :] = knn2
 
-            fnn1, fnn2 = fnn(ts1[:new_n], ts2[:new_n], r=rv, dist_fun=dist_fun)
+            fnn1, fnn2 = fnn_conjugacy_test(ts1[:new_n], ts2[:new_n], r=rv, dist_fun=dist_fun)
             fnn_diffs[i, j, :] = fnn1
             fnn_diffs[j, i, :] = fnn2
 
@@ -133,12 +133,12 @@ def vanilla_experiment(data, base_name, kv, tv, rv, do_knn, do_conj, homeo=None,
         if do_conj:
             tsA = ts1[:new_n]
             tsB = ts2[:new_n]
-            conj_diffs[i, j, :, :] = conjugacy_test(tsA, tsB, homeo(k1, k2, ts1, ts2), k=kv, t=tv, dist_fun=dist_fun)
-            conj_diffs[j, i, :, :] = conjugacy_test(tsB, tsA, homeo(k2, k1, ts2, ts1), k=kv, t=tv, dist_fun=dist_fun)
-            neigh_conj_diffs[i, j, :, :] = neigh_conjugacy_test(tsA, tsB, homeo(k1, k2, ts1, ts2), k=kv, t=tv,
-                                                                   dist_fun=dist_fun)
-            neigh_conj_diffs[j, i, :, :] = neigh_conjugacy_test(tsB, tsA, homeo(k2, k1, ts2, ts1), k=kv, t=tv,
-                                                                   dist_fun=dist_fun)
+            conj_diffs[i, j, :, :] = conjtest(tsA, tsB, homeo(k1, k2, ts1, ts2), k=kv, t=tv, dist_fun=dist_fun)
+            conj_diffs[j, i, :, :] = conjtest(tsB, tsA, homeo(k2, k1, ts2, ts1), k=kv, t=tv, dist_fun=dist_fun)
+            neigh_conj_diffs[i, j, :, :] = conjtest_plus(tsA, tsB, homeo(k1, k2, ts1, ts2), k=kv, t=tv,
+                                                         dist_fun=dist_fun)
+            neigh_conj_diffs[j, i, :, :] = conjtest_plus(tsB, tsA, homeo(k2, k1, ts2, ts1), k=kv, t=tv,
+                                                         dist_fun=dist_fun)
 
     if do_knn:
         for ik, k in enumerate(kv):
